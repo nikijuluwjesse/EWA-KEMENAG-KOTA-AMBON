@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { 
+      background: url('https://images.unsplash.com/photo-1557683316-973673baf926') no-repeat center center fixed; 
+      background-size: cover; 
+    }
+    .container-glass {
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 15px;
+      padding: 20px;
+      margin-top: 50px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div id="loginSection" class="row justify-content-center">
+      <div class="col-md-4 container-glass">
+        <h3 class="text-center">EWS Kemenag Ambon</h3>
+        <hr>
+        <input type="text" id="user" class="form-control mb-2" placeholder="Username">
+        <input type="password" id="pass" class="form-control mb-3" placeholder="Password">
+        <button class="btn btn-primary w-100" onclick="login()">Login</button>
+      </div>
+    </div>
+
+    <div id="mainSection" class="hidden">
+      <nav class="navbar navbar-expand-lg navbar-dark bg-dark mb-4 mt-3 rounded">
+        <div class="container-fluid">
+          <span class="navbar-brand">Dashboard EWS</span>
+          <button class="btn btn-danger btn-sm" onclick="location.reload()">Logout</button>
+        </div>
+      </nav>
+
+      <div class="row">
+        <div class="col-md-5 container-glass mb-4">
+          <h5>Form Pelaporan Kejadian</h5>
+          <form id="reportForm">
+            <input type="text" id="nama" class="form-control mb-2" placeholder="Nama Pelapor" required>
+            <input type="number" id="nohp" class="form-control mb-2" placeholder="Nomor HP (11-12 digit)" required>
+            <input type="text" id="lembaga" class="form-control mb-2" placeholder="Asal Lembaga" required>
+            <textarea id="kejadian" class="form-control mb-2" placeholder="Laporan Kejadian" required></textarea>
+            <textarea id="penanganan" class="form-control mb-2" placeholder="Penanganan Masalah"></textarea>
+            <input type="text" id="pihak" class="form-control mb-2" placeholder="Pihak yang Terlibat">
+            <label class="form-label">Upload Foto Bukti:</label>
+            <input type="file" id="foto" class="form-control mb-3" accept="image/*">
+            <button type="button" class="btn btn-success w-100" onclick="kirimLaporan()">Kirim Laporan</button>
+          </form>
+        </div>
+
+        <div class="col-md-7 container-glass">
+          <h5>Status & Tanggapan Admin</h5>
+          <div class="table-responsive">
+            <table class="table table-sm" id="tabelLaporan">
+              <thead>
+                <tr>
+                  <th>Tanggal</th>
+                  <th>Laporan</th>
+                  <th>Tanggapan Admin</th>
+                </tr>
+              </thead>
+              <tbody id="dataBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function login() {
+      const u = document.getElementById('user').value;
+      const p = document.getElementById('pass').value;
+      google.script.run.withSuccessHandler(res => {
+        if(res.success) {
+          document.getElementById('loginSection').classList.add('hidden');
+          document.getElementById('mainSection').classList.remove('hidden');
+          loadData();
+        } else {
+          alert("Login Gagal!");
+        }
+      }).checkLogin(u, p);
+    }
+
+    function kirimLaporan() {
+      const nohp = document.getElementById('nohp').value;
+      if (nohp.length < 11 || nohp.length > 12) {
+        alert("Nomor HP harus 11-12 digit!");
+        return;
+      }
+
+      const fileInput = document.getElementById('foto');
+      const file = fileInput.files[0];
+      const formData = {
+        nama: document.getElementById('nama').value,
+        nohp: nohp,
+        lembaga: document.getElementById('lembaga').value,
+        kejadian: document.getElementById('kejadian').value,
+        penanganan: document.getElementById('penanganan').value,
+        pihak: document.getElementById('pihak').value
+      };
+
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          const fileData = {
+            data: e.target.result.split(',')[1],
+            type: file.type,
+            name: file.name
+          };
+          google.script.run.withSuccessHandler(msg => {
+            alert(msg);
+            document.getElementById('reportForm').reset();
+            loadData();
+          }).submitLaporan(formData, fileData);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        google.script.run.submitLaporan(formData, null);
+      }
+    }
+
+    function loadData() {
+      google.script.run.withSuccessHandler(data => {
+        let html = "";
+        for (let i = 1; i < data.length; i++) {
+          html += `<tr>
+            <td>${new Date(data[i][0]).toLocaleDateString()}</td>
+            <td>${data[i][4]}</td>
+            <td class="text-primary"><b>${data[i][8] || 'Belum ada tanggapan'}</b></td>
+          </tr>`;
+        }
+        document.getElementById('dataBody').innerHTML = html;
+      }).getLaporanData();
+    }
+  </script>
+</body>
+</html>
